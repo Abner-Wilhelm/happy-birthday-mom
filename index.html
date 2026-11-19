@@ -316,6 +316,8 @@
             pol.style.padding = '5px 5px 18px';
             pol.querySelector('img').style.aspectRatio = '1';
             pol.querySelector('img').style.objectFit = 'cover';
+            // Mirror this one so the next photo in the stack doesn't cover the person on its right edge
+            if (src === 'mom-2.jpg') pol.querySelector('img').style.transform = 'scaleX(-1)';
             wrap.appendChild(pol);
             strip.appendChild(wrap);
         });
