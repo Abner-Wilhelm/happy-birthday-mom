@@ -84,7 +84,7 @@
             width: clamp(150px, 15vw, 230px);
             animation: drift var(--dur, 7s) ease-in-out var(--delay, 0s) infinite;
         }
-        .floater .polaroid img { aspect-ratio: 4 / 5; object-fit: cover; }
+        .floater .polaroid img { aspect-ratio: 1; object-fit: cover; }
         @keyframes drift {
             0%,100% { translate: 0 0; }
             50% { translate: 0 -14px; }
@@ -115,12 +115,58 @@
         #lightbox.open { display: flex; }
         #lightbox img { max-width: 100%; max-height: 90vh; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 
+        /* ---------- Background: balloons + sparkles ---------- */
+        #page { position: relative; z-index: 1; }
+        #sky { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+        .balloon {
+            position: absolute;
+            bottom: -180px;
+            width: var(--w);
+            height: calc(var(--w) * 1.2);
+            border-radius: 50% 50% 48% 52% / 55% 55% 45% 45%;
+            background:
+                radial-gradient(circle at 32% 28%, rgba(255,255,255,.7) 0 7%, transparent 8%),
+                radial-gradient(circle at 40% 35%, var(--c) 0 55%, color-mix(in srgb, var(--c) 75%, #7a1f3d) 100%);
+            opacity: .8;
+            animation: rise var(--t) linear var(--d) infinite;
+        }
+        .balloon::before { /* string */
+            content: ""; position: absolute; top: calc(100% + 6px); left: 50%;
+            width: 1px; height: calc(var(--w) * 1.6);
+            background: linear-gradient(rgba(140, 70, 90, .5), transparent);
+        }
+        .balloon::after { /* knot */
+            content: ""; position: absolute; top: calc(100% - 2px); left: 50%; transform: translateX(-50%);
+            border-left: 5px solid transparent; border-right: 5px solid transparent;
+            border-bottom: 8px solid var(--c);
+        }
+        @keyframes rise {
+            0%   { transform: translate(0, 0) rotate(-4deg); }
+            25%  { transform: translate(var(--sway), -30vh) rotate(4deg); }
+            50%  { transform: translate(0, -60vh) rotate(-4deg); }
+            75%  { transform: translate(calc(var(--sway) * -1), -90vh) rotate(4deg); }
+            100% { transform: translate(0, calc(-100vh - 320px)) rotate(-4deg); }
+        }
+        .sparkle {
+            position: absolute; color: #fff; text-shadow: 0 0 8px rgba(255, 190, 80, .9);
+            animation: twinkle var(--t) ease-in-out var(--d) infinite;
+            opacity: 0;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0; transform: scale(.4) rotate(0deg); }
+            50% { opacity: .9; transform: scale(1) rotate(45deg); }
+        }
+
         @media (prefers-reduced-motion: reduce) {
-            .floater, .bounce-animation, .pulse-ring { animation: none; }
+            .floater, .bounce-animation, .pulse-ring, .balloon, .sparkle { animation: none; }
+            .balloon { display: none; }
         }
     </style>
 </head>
 <body class="locked font-body text-gray-800 antialiased selection:bg-pink-200 selection:text-pink-900">
+
+    <!-- Balloons and sparkles behind everything (filled by the script) -->
+    <div id="sky" aria-hidden="true"></div>
 
     <!-- Gift box -->
     <div id="gift-container">
@@ -182,7 +228,8 @@
 
         <!-- ===== Collage ===== -->
         <section class="reveal max-w-6xl mx-auto px-4 pb-16">
-            <h2 class="font-script text-4xl md:text-5xl text-rose-600 text-center mb-10">A few of our favorite moments</h2>
+            <h2 class="font-script text-4xl md:text-5xl text-rose-600 text-center">Also wishing you a happy birthday&hellip;</h2>
+            <p class="font-hand text-2xl md:text-3xl text-rose-700/80 text-center mt-2 mb-10">the whole furry crew 🐾</p>
             <div id="collage" class="collage columns-2 md:columns-3 lg:columns-4"></div>
 
             <div class="text-center pt-6">
@@ -197,19 +244,27 @@
 
     <script>
         // ---------- Photos (all in images/) ----------
-        // These six float around the message on big screens.
+        // Photos of Mom and me: around the message on big screens, across the top on phones.
+        const momPhotos = ['mom-1.jpg', 'mom-2.jpg', 'mom-3.jpg', 'mom-4.jpg'];
+
+        // What floats around the message on big screens.
+        // kind 'photo' = framed polaroid, kind 'cutout' = cut-out animal from images/cutouts/
         const floaterPhotos = [
-            { src: 'IMG_1051.jpg', top: '4%',  left: '1%',  r: -8, dur: 7,   delay: 0 },
-            { src: 'IMG_1536.jpg', top: '38%', left: '5%',  r: 6,  dur: 8,   delay: 1.2 },
-            { src: 'IMG_3297.jpg', top: '68%', left: '0%',  r: -4, dur: 6.5, delay: .6 },
-            { src: 'IMG_1242.jpg', top: '2%',  right: '2%', r: 7,  dur: 7.5, delay: .3 },
-            { src: 'IMG_6409.jpg', top: '35%', right: '0%', r: -6, dur: 6.8, delay: 1.5 },
-            { src: 'IMG_3305.jpg', top: '67%', right: '4%', r: 5,  dur: 8.2, delay: .9 },
+            { kind: 'photo',  src: 'mom-1.jpg',    top: '3%',  left: '2%',  r: -7, dur: 7,   delay: 0 },
+            { kind: 'photo',  src: 'mom-3.jpg',    top: '36%', left: '5%',  r: 5,  dur: 8,   delay: 1.2 },
+            { kind: 'cutout', src: 'IMG_3297.jpg', top: '70%', left: '0%',  r: -4, dur: 6.5, delay: .6 },
+            { kind: 'photo',  src: 'mom-2.jpg',    top: '2%',  right: '2%', r: 6,  dur: 7.5, delay: .3 },
+            { kind: 'photo',  src: 'mom-4.jpg',    top: '35%', right: '4%', r: -5, dur: 6.8, delay: 1.5 },
+            { kind: 'cutout', src: 'IMG_3305.jpg', top: '69%', right: '3%', r: 5,  dur: 8.2, delay: .9 },
         ];
-        // The rest go in the collage below.
+
+        // All the animals wishing her a happy birthday.
         const collagePhotos = [
-            'IMG_1472.jpg', 'IMG_3337.jpg', 'IMG_2779.jpg', 'IMG_3146.jpg',
-            'IMG_3338.jpg', 'lp_image.jpg', '1FB8F60A-8E4E-4173-A98D-3074E33B17DC.jpg'
+            'pet-04.jpg', 'IMG_1472.jpg', 'pet-03.jpg', 'IMG_1051.jpg', 'pet-08.jpg',
+            'IMG_3337.jpg', 'pet-06.jpg', 'IMG_2779.jpg', 'pet-05.jpg', 'IMG_1536.jpg',
+            'pet-01.jpg', 'IMG_3146.jpg', 'pet-09.jpg', 'IMG_1242.jpg', 'pet-02.jpg',
+            'IMG_3338.jpg', 'pet-07.jpg', 'IMG_6409.jpg', 'lp_image.jpg',
+            '1FB8F60A-8E4E-4173-A98D-3074E33B17DC.jpg'
         ];
 
         function polaroid(src, rotation, { taped = false } = {}) {
@@ -237,24 +292,27 @@
             if (p.right) wrap.style.right = p.right;
             wrap.style.setProperty('--dur', p.dur + 's');
             wrap.style.setProperty('--delay', p.delay + 's');
-            const cut = document.createElement('img');
-            cut.src = 'images/cutouts/' + p.src.replace(/\.(jpe?g|png)$/i, '.png');
-            cut.alt = 'Family photo';
-            cut.loading = 'lazy';
-            cut.className = 'floater-cut';
-            cut.style.transform = `rotate(${p.r}deg)`;
-            cut.onclick = () => openLightbox(cut.src);
-            wrap.appendChild(cut);
+            if (p.kind === 'photo') {
+                wrap.appendChild(polaroid(p.src, p.r, { taped: true }));
+            } else {
+                const cut = document.createElement('img');
+                cut.src = 'images/cutouts/' + p.src.replace(/\.(jpe?g|png)$/i, '.png');
+                cut.alt = 'One of the animals';
+                cut.className = 'floater-cut';
+                cut.style.transform = `rotate(${p.r}deg)`;
+                cut.onclick = () => openLightbox(cut.src);
+                wrap.appendChild(cut);
+            }
             floaters.appendChild(wrap);
         });
 
-        // Phone strip: first four floaters, overlapping
+        // Phone strip: the four photos of Mom and me, overlapping
         const strip = document.getElementById('strip');
-        floaterPhotos.slice(0, 4).forEach((p, i) => {
+        momPhotos.forEach((src, i) => {
             const wrap = document.createElement('div');
             wrap.className = 'w-24 sm:w-28';
             wrap.style.marginTop = (i % 2 ? 14 : 0) + 'px';
-            const pol = polaroid(p.src, [-8, 5, -4, 8][i]);
+            const pol = polaroid(src, [-8, 5, -4, 8][i]);
             pol.style.padding = '5px 5px 18px';
             pol.querySelector('img').style.aspectRatio = '1';
             pol.querySelector('img').style.objectFit = 'cover';
@@ -266,6 +324,34 @@
         const collage = document.getElementById('collage');
         const tilts = [-3, 2, -1.5, 3, -2, 1.5, -2.5, 2.5];
         collagePhotos.forEach((src, i) => collage.appendChild(polaroid(src, tilts[i % tilts.length], { taped: i % 3 === 0 })));
+
+        // Balloons drifting up and sparkles twinkling in the background
+        const sky = document.getElementById('sky');
+        const balloonColors = ['#FF8FAB', '#FFB3C6', '#FFC971', '#A0D8EF', '#C3B1E1', '#FF9E80', '#F7D6E0'];
+        const balloonCount = window.innerWidth < 640 ? 9 : 16;
+        for (let i = 0; i < balloonCount; i++) {
+            const b = document.createElement('div');
+            b.className = 'balloon';
+            const t = 16 + Math.random() * 14;                       // seconds to float up
+            b.style.left = (Math.random() * 96) + '%';
+            b.style.setProperty('--w', (34 + Math.random() * 34) + 'px');
+            b.style.setProperty('--c', balloonColors[i % balloonColors.length]);
+            b.style.setProperty('--t', t + 's');
+            b.style.setProperty('--d', (-Math.random() * t) + 's'); // start mid-flight
+            b.style.setProperty('--sway', (15 + Math.random() * 35) + 'px');
+            sky.appendChild(b);
+        }
+        for (let i = 0; i < 22; i++) {
+            const s = document.createElement('span');
+            s.className = 'sparkle';
+            s.textContent = '✦';
+            s.style.left = (Math.random() * 100) + '%';
+            s.style.top = (Math.random() * 100) + '%';
+            s.style.fontSize = (8 + Math.random() * 12) + 'px';
+            s.style.setProperty('--t', (2.5 + Math.random() * 3) + 's');
+            s.style.setProperty('--d', (Math.random() * 4) + 's');
+            sky.appendChild(s);
+        }
 
         function openLightbox(src) {
             const lb = document.getElementById('lightbox');
